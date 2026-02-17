@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\VisitorResource\Pages;
+use App\Models\FraudLog;
 use App\Models\Visitor;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -83,6 +84,17 @@ class VisitorResource extends Resource
                     ->label('Forms')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('fraud_score')
+                    ->label('Fraud Score')
+                    ->state(fn ($record) => FraudLog::where('visitor_id', $record->id)->sum('score_points'))
+                    ->badge()
+                    ->color(fn (int $state): string => match (true) {
+                        $state >= 100 => 'danger',
+                        $state >= 50 => 'warning',
+                        $state > 0 => 'info',
+                        default => 'gray',
+                    }),
+
                 Tables\Columns\IconColumn::make('is_identified')
                     ->label('Identified')
                     ->boolean()
@@ -117,6 +129,10 @@ class VisitorResource extends Resource
                         true: fn ($query) => $query->whereNotNull('identified_email')->orWhereNotNull('identified_phone'),
                         false: fn ($query) => $query->whereNull('identified_email')->whereNull('identified_phone'),
                     ),
+
+                Tables\Filters\Filter::make('suspicious')
+                    ->label('Has Fraud Signals')
+                    ->query(fn ($query) => $query->whereHas('fraudLogs')),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

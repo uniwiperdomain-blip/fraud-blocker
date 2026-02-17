@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class Tenant extends Model
@@ -78,6 +79,26 @@ class Tenant extends Model
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    public function fraudLogs(): HasMany
+    {
+        return $this->hasMany(FraudLog::class);
+    }
+
+    public function blockedIps(): HasMany
+    {
+        return $this->hasMany(BlockedIp::class);
+    }
+
+    public function googleAdsAccounts(): HasMany
+    {
+        return $this->hasMany(GoogleAdsAccount::class);
+    }
+
+    public function fraudSetting(): HasOne
+    {
+        return $this->hasOne(FraudSetting::class);
     }
 
     public function getEmbedCodeAttribute(): string

@@ -44,6 +44,9 @@ class Pageview extends Model
         'user_agent',
         'url_email',
         'url_phone',
+        'bot_signals',
+        'is_suspicious',
+        'fraud_score',
         'created_at',
     ];
 
@@ -53,6 +56,9 @@ class Pageview extends Model
         'is_mobile' => 'boolean',
         'is_ios' => 'boolean',
         'is_safari' => 'boolean',
+        'bot_signals' => 'array',
+        'is_suspicious' => 'boolean',
+        'fraud_score' => 'integer',
         'created_at' => 'datetime',
     ];
 

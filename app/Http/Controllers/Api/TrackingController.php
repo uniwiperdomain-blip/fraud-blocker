@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\AnalyzeFraudJob;
 use App\Models\Click;
 use App\Models\Engagement;
 use App\Models\Event;
 use App\Models\FormSubmission;
 use App\Models\Pageview;
 use App\Models\Tenant;
+use App\Services\FraudDetectionService;
 use App\Services\VisitorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,12 +18,10 @@ use Illuminate\Http\Response;
 
 class TrackingController extends Controller
 {
-    protected VisitorService $visitorService;
-
-    public function __construct(VisitorService $visitorService)
-    {
-        $this->visitorService = $visitorService;
-    }
+    public function __construct(
+        protected VisitorService $visitorService,
+        protected FraudDetectionService $fraudDetectionService,
+    ) {}
 
     /**
      * Serve the tracking pixel JavaScript.
@@ -81,6 +81,7 @@ class TrackingController extends Controller
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
             'fingerprint' => 'nullable|array',
+            'botSignals' => 'nullable|array',
         ]);
 
         $tenant = Tenant::where('pixel_code', $data['pixelCode'])
@@ -89,6 +90,16 @@ class TrackingController extends Controller
 
         if (!$tenant) {
             return response()->json(['error' => 'Invalid pixel code'], 400);
+        }
+
+        // Check if IP is blocked — return 200 to not tip off bots
+        if ($this->fraudDetectionService->isBlocked($tenant, $request->ip())) {
+            return response()->json([
+                'success' => true,
+                'sessionId' => 0,
+                'pageviewId' => 0,
+                'pixelId' => $tenant->pixel_code,
+            ]);
         }
 
         // Find or create visitor
@@ -134,8 +145,25 @@ class TrackingController extends Controller
             'user_agent' => $request->userAgent(),
             'url_email' => $data['email'] ?? null,
             'url_phone' => $data['phone'] ?? null,
+            'bot_signals' => $data['botSignals'] ?? null,
             'created_at' => now(),
         ]);
+
+        // Real-time fraud check
+        $fraudResult = $this->fraudDetectionService->performRealtimeCheck(
+            $tenant, $visitor, $pageview, $data['botSignals'] ?? []
+        );
+
+        if ($fraudResult['is_suspicious']) {
+            $pageview->update([
+                'is_suspicious' => true,
+                'fraud_score' => $fraudResult['fraud_score'],
+            ]);
+        }
+
+        // Dispatch deferred fraud analysis (waits for engagement data)
+        AnalyzeFraudJob::dispatch($tenant->id, $visitor->id, $pageview->id)
+            ->delay(now()->addSeconds(30));
 
         // Auto-identify visitor if email/phone provided in URL
         if (!empty($data['email']) || !empty($data['phone'])) {
@@ -311,6 +339,7 @@ class TrackingController extends Controller
             'url' => 'required|string',
             'timeOnPage' => 'nullable|integer',
             'scrollDepth' => 'nullable|integer|min:0|max:100',
+            'mouseMovement' => 'nullable|boolean',
         ]);
 
         $tenant = Tenant::where('pixel_code', $data['pixelCode'])
@@ -339,6 +368,11 @@ class TrackingController extends Controller
             'url' => $data['url'],
             'created_at' => now(),
         ]);
+
+        // Re-analyze fraud after engagement data arrives for gclid pageviews
+        if ($pageview && $pageview->gclid) {
+            AnalyzeFraudJob::dispatch($tenant->id, $visitor->id, $pageview->id);
+        }
 
         return response()->json([
             'success' => true,

@@ -191,6 +191,82 @@
     }
   }
 
+  // Bot detection signals
+  var botSignals = {};
+  var mouseHasMoved = false;
+
+  function collectBotSignals() {
+    // WebDriver detection (Selenium, Puppeteer, Playwright)
+    botSignals.webdriver = !!(navigator.webdriver);
+
+    // Chrome-specific: real Chrome has window.chrome object
+    var ua = navigator.userAgent || '';
+    if (/Chrome/.test(ua) && !window.chrome) {
+      botSignals.chrome_missing = true;
+    }
+
+    // Languages check (bots often have 0)
+    botSignals.languages_count = (navigator.languages && navigator.languages.length) || 0;
+
+    // Plugins check (real browsers have plugins)
+    botSignals.plugins_count = (navigator.plugins && navigator.plugins.length) || 0;
+
+    // Permission API presence
+    botSignals.has_permissions = !!navigator.permissions;
+
+    // Notification API presence
+    botSignals.has_notification = !!window.Notification;
+
+    // Mouse movement tracking
+    var mouseHandler = function() {
+      mouseHasMoved = true;
+      botSignals.mouse_moved = true;
+      document.removeEventListener('mousemove', mouseHandler);
+    };
+    document.addEventListener('mousemove', mouseHandler);
+
+    // Honeypot field (invisible field that only bots fill)
+    try {
+      var honeypot = document.createElement('input');
+      honeypot.type = 'text';
+      honeypot.name = 'pt_hp_field';
+      honeypot.id = 'pt_hp_field';
+      honeypot.style.cssText = 'position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;width:0;overflow:hidden;';
+      honeypot.tabIndex = -1;
+      honeypot.autocomplete = 'off';
+      if (document.body) {
+        document.body.appendChild(honeypot);
+      }
+    } catch (e) {}
+
+    // JS challenge: requestAnimationFrame timing
+    try {
+      var challengeStart = performance.now();
+      requestAnimationFrame(function() {
+        var elapsed = performance.now() - challengeStart;
+        botSignals.raf_timing = Math.round(elapsed);
+        botSignals.js_challenge_passed = (elapsed > 1 && elapsed < 200);
+      });
+    } catch (e) {
+      botSignals.js_challenge_passed = false;
+    }
+  }
+
+  function finalizeBotSignals() {
+    // Check honeypot at send time
+    try {
+      var hp = document.getElementById('pt_hp_field');
+      if (hp && hp.value && hp.value.length > 0) {
+        botSignals.honeypot_filled = true;
+      } else {
+        botSignals.honeypot_filled = false;
+      }
+    } catch (e) {}
+
+    botSignals.mouse_moved = mouseHasMoved;
+    return botSignals;
+  }
+
   // Device detection
   var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -313,7 +389,8 @@
           h_ad_id: getUrlParameter('h_ad_id'),
           email: getUrlParameter('email') || getUrlParameter('contact_email'),
           phone: getUrlParameter('phone') || getUrlParameter('contact_phone'),
-          fingerprint: fingerprint
+          fingerprint: fingerprint,
+          botSignals: finalizeBotSignals()
         };
 
         sendRequest('/pageview', pageData, function(success, response) {
@@ -418,7 +495,8 @@
       cookieId: cookieId,
       url: window.location.href,
       timeOnPage: Math.round((Date.now() - startTime) / 1000),
-      scrollDepth: maxScrollDepth
+      scrollDepth: maxScrollDepth,
+      mouseMovement: mouseHasMoved
     };
 
     if (navigator.sendBeacon) {
@@ -436,6 +514,7 @@
   // Initialize
   function init() {
     try {
+      collectBotSignals();
       trackPageView();
       trackClicks();
       trackFormSubmissions();

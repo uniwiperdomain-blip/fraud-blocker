@@ -70,6 +70,23 @@ class PageviewResource extends Resource
                     ->label('Mobile')
                     ->boolean(),
 
+                Tables\Columns\IconColumn::make('is_suspicious')
+                    ->label('Suspicious')
+                    ->boolean()
+                    ->trueColor('danger')
+                    ->falseColor('gray'),
+
+                Tables\Columns\TextColumn::make('fraud_score')
+                    ->label('Fraud')
+                    ->badge()
+                    ->color(fn (int $state): string => match (true) {
+                        $state >= 100 => 'danger',
+                        $state >= 50 => 'warning',
+                        $state > 0 => 'info',
+                        default => 'gray',
+                    })
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Time')
                     ->dateTime()
@@ -95,6 +112,9 @@ class PageviewResource extends Resource
                 Tables\Filters\Filter::make('has_gclid')
                     ->label('Has Google Click ID')
                     ->query(fn ($query) => $query->whereNotNull('gclid')),
+
+                Tables\Filters\TernaryFilter::make('is_suspicious')
+                    ->label('Suspicious'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

@@ -81,6 +81,11 @@ class Visitor extends Model
         return $this->hasMany(Event::class);
     }
 
+    public function fraudLogs(): HasMany
+    {
+        return $this->hasMany(FraudLog::class);
+    }
+
     public function isIdentified(): bool
     {
         return !empty($this->identified_email) || !empty($this->identified_phone);
