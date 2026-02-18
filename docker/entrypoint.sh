@@ -1,7 +1,12 @@
 #!/bin/sh
 set -e
 
-# Map DB_LINK to DATABASE_URL for Laravel (Dokploy compatibility)
+cd /var/www/html
+
+# All config comes from Dokploy environment variables — no .env file
+rm -f .env
+
+# Map DB_LINK to DATABASE_URL for Laravel
 if [ -n "$DB_LINK" ]; then
     export DATABASE_URL="$DB_LINK"
     export DB_CONNECTION=mysql
@@ -16,13 +21,18 @@ if [ "$DB_CONNECTION" = "sqlite" ]; then
     fi
 fi
 
+# Generate APP_KEY if not set
+if [ -z "$APP_KEY" ]; then
+    php artisan key:generate --force
+fi
+
 # Run migrations
 php artisan migrate --force
 
-# Cache config and routes for production
+# Cache config from environment variables
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-# Start supervisor (nginx + php-fpm + queue + scheduler)
+# Start supervisor (nginx + php-fpm + queue worker + scheduler)
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
