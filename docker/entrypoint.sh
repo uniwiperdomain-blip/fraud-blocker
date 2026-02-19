@@ -6,9 +6,9 @@ cd /var/www/html
 # All config comes from Dokploy environment variables — no .env file
 rm -f .env
 
-# Map DB_LINK to DATABASE_URL for Laravel
+# Map DB_LINK to DB_URL for Laravel (config/database.php reads DB_URL)
 if [ -n "$DB_LINK" ]; then
-    export DATABASE_URL="$DB_LINK"
+    export DB_URL="$DB_LINK"
     export DB_CONNECTION=mysql
 fi
 
