@@ -67,8 +67,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 COPY --from=build /var/www/html /var/www/html
 
-# Remove any .env files — all config comes from Dokploy environment variables
-RUN rm -f /var/www/html/.env /var/www/html/.env.*
+# Remove any .env files and stale caches — all config comes from Dokploy env vars
+RUN rm -f /var/www/html/.env /var/www/html/.env.* \
+    /var/www/html/bootstrap/cache/config.php \
+    /var/www/html/bootstrap/cache/routes-v7.php
 
 RUN mkdir -p /var/www/html/storage/logs \
     /var/www/html/storage/framework/sessions \

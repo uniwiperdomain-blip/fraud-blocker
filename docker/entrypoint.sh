@@ -5,6 +5,7 @@ cd /var/www/html
 
 # All config comes from Dokploy environment variables — no .env file
 rm -f .env
+rm -f bootstrap/cache/config.php
 
 # Map DB_LINK to DB_URL for Laravel (config/database.php reads DB_URL)
 if [ -n "$DB_LINK" ]; then
@@ -25,6 +26,16 @@ fi
 if [ -z "$APP_KEY" ]; then
     php artisan key:generate --force
 fi
+
+# Debug: print DB config so we can verify in Dokploy logs
+echo "=== DB Config ==="
+echo "DB_CONNECTION=$DB_CONNECTION"
+echo "DB_HOST=$DB_HOST"
+echo "DB_PORT=$DB_PORT"
+echo "DB_DATABASE=$DB_DATABASE"
+echo "DB_USERNAME=$DB_USERNAME"
+echo "DB_LINK set: $([ -n "$DB_LINK" ] && echo 'yes' || echo 'no')"
+echo "================="
 
 # Run migrations
 php artisan migrate --force
