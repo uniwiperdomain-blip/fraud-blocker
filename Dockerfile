@@ -1,12 +1,18 @@
-FROM node:22-alpine AS node
+# -------------------------------------------------------------------
+# Frontend build stage (Node 22 — required by Vite)
+# -------------------------------------------------------------------
+FROM node:22-alpine AS frontend
 
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# -------------------------------------------------------------------
+# PHP base image
+# -------------------------------------------------------------------
 FROM php:8.4-fpm-alpine AS base
-
-# Copy Node 22 from official image (Vite requires Node 20.19+ or 22.12+)
-COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-    && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 RUN apk add --no-cache \
     nginx \
@@ -38,24 +44,15 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # -------------------------------------------------------------------
-# Dependencies stage
+# PHP dependencies stage
 # -------------------------------------------------------------------
 FROM base AS dependencies
 
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-COPY package.json package-lock.json* ./
-RUN npm ci
-
-# -------------------------------------------------------------------
-# Build stage (frontend assets)
-# -------------------------------------------------------------------
-FROM dependencies AS build
-
 COPY . .
 RUN composer dump-autoload --optimize
-RUN npm run build
 
 # -------------------------------------------------------------------
 # Production image
@@ -71,7 +68,11 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-COPY --from=build /var/www/html /var/www/html
+# Copy PHP app with Composer dependencies
+COPY --from=dependencies /var/www/html /var/www/html
+
+# Copy Vite-built assets from frontend stage
+COPY --from=frontend /app/public/build /var/www/html/public/build
 
 # Remove any .env files and stale caches — all config comes from Dokploy env vars
 RUN rm -f /var/www/html/.env /var/www/html/.env.* \
