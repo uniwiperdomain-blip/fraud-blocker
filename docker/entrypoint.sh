@@ -3,14 +3,27 @@ set -e
 
 cd /var/www/html
 
+# Ensure storage & cache dirs exist and are writable by www-data
+# (volumes may override permissions set during docker build)
+mkdir -p storage/logs storage/framework/sessions storage/framework/views storage/framework/cache bootstrap/cache database
+chown -R www-data:www-data storage bootstrap/cache database
+
 # All config comes from Dokploy environment variables — no .env file
 rm -f .env
 rm -f bootstrap/cache/config.php
 
 # Map DB_LINK to DB_URL for Laravel (config/database.php reads DB_URL)
+# Auto-detect DB_CONNECTION from URL scheme (mysql://, pgsql://, mariadb://, sqlite://)
 if [ -n "$DB_LINK" ]; then
     export DB_URL="$DB_LINK"
-    export DB_CONNECTION=mysql
+    SCHEME=$(echo "$DB_LINK" | sed -n 's|^\([a-z]*\)://.*|\1|p')
+    case "$SCHEME" in
+        mysql)    export DB_CONNECTION=mysql ;;
+        pgsql|postgres|postgresql) export DB_CONNECTION=pgsql ;;
+        mariadb)  export DB_CONNECTION=mariadb ;;
+        sqlite)   export DB_CONNECTION=sqlite ;;
+        *)        export DB_CONNECTION=mysql ;;
+    esac
 fi
 
 # Create SQLite database if using sqlite and it doesn't exist
@@ -34,7 +47,7 @@ echo "DB_HOST=$DB_HOST"
 echo "DB_PORT=$DB_PORT"
 echo "DB_DATABASE=$DB_DATABASE"
 echo "DB_USERNAME=$DB_USERNAME"
-echo "DB_LINK set: $([ -n "$DB_LINK" ] && echo 'yes' || echo 'no')"
+echo "DB_LINK set: $([ -n "$DB_LINK" ] && echo 'yes (detected driver: '"$DB_CONNECTION"')' || echo 'no')"
 echo "================="
 
 # Run migrations

@@ -230,6 +230,37 @@ The tracking cookie (`pt_tid`) is set with:
 
 ## Deployment
 
+### Docker / Dokploy
+
+Build and run with Docker:
+
+```bash
+docker compose up -d
+```
+
+Or deploy via **Dokploy** — set these environment variables in your Dokploy service:
+
+| Variable | Required | Example |
+|----------|----------|---------|
+| `APP_URL` | Yes | `https://fraud.yourdomain.com` |
+| `APP_KEY` | No | Auto-generated if not set |
+| `DB_LINK` | Yes | `mysql://user:pass@host:3306/dbname` |
+| `IPINFO_TOKEN` | Recommended | Your ipinfo.io token |
+| `FRAUD_DETECTION_ENABLED` | No | `true` (default) |
+| `GOOGLE_ADS_CLIENT_ID` | No | For auto IP exclusion sync |
+| `GOOGLE_ADS_CLIENT_SECRET` | No | For auto IP exclusion sync |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | No | For auto IP exclusion sync |
+
+**`DB_LINK`** accepts a full database URL. The driver is auto-detected from the scheme:
+
+- `mysql://user:pass@host:3306/db` → MySQL
+- `pgsql://user:pass@host:5432/db` → PostgreSQL
+- `mariadb://user:pass@host:3306/db` → MariaDB
+
+Alternatively, set individual `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` variables instead of `DB_LINK`.
+
+The container handles migrations, config caching, and process management (Nginx, PHP-FPM, queue worker, scheduler) automatically.
+
 ### Production Checklist
 
 1. Set `APP_ENV=production` and `APP_DEBUG=false`
