@@ -50,13 +50,13 @@ echo "DB_USERNAME=$DB_USERNAME"
 echo "DB_LINK set: $([ -n "$DB_LINK" ] && echo 'yes (detected driver: '"$DB_CONNECTION"')' || echo 'no')"
 echo "================="
 
-# Run migrations
-php artisan migrate --force
+# Run migrations (don't let failure prevent container from starting)
+php artisan migrate --force || echo "WARNING: Migration failed — check DB connection"
 
 # Cache config from environment variables
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
 
 # Start supervisor (nginx + php-fpm + queue worker + scheduler)
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
