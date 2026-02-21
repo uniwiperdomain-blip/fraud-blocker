@@ -12,9 +12,10 @@ RUN apk add --no-cache \
     curl-dev \
     git \
     zip \
-    unzip \
-    nodejs \
-    npm
+    unzip
+
+# Install Node 22 (Vite requires Node 20.19+ or 22.12+)
+RUN apk add --no-cache nodejs-current npm --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
 RUN docker-php-ext-install \
     pdo_mysql \
