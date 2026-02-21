@@ -1,4 +1,12 @@
+FROM node:22-alpine AS node
+
 FROM php:8.4-fpm-alpine AS base
+
+# Copy Node 22 from official image (Vite requires Node 20.19+ or 22.12+)
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 RUN apk add --no-cache \
     nginx \
@@ -13,9 +21,6 @@ RUN apk add --no-cache \
     git \
     zip \
     unzip
-
-# Install Node 22 (Vite requires Node 20.19+ or 22.12+)
-RUN apk add --no-cache nodejs-current npm --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
 RUN docker-php-ext-install \
     pdo_mysql \
